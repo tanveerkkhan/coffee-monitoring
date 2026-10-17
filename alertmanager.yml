@@ -1,0 +1,14 @@
+route:
+  receiver: slack
+  group_by: ["alertname"]
+  group_wait: 10s          # wait a bit so related alerts arrive in one message
+  repeat_interval: 1h      # re-notify if still firing
+
+receivers:
+  - name: slack
+    slack_configs:
+      - api_url: "https://hooks.slack.com/services/REPLACE/WITH/YOUR_WEBHOOK"
+        channel: "#alerts"
+        send_resolved: true
+        title: "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"

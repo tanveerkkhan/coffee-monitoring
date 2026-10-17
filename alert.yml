@@ -1,0 +1,58 @@
+groups:
+  - name: coffee-shop-alerts
+    rules:
+
+      # Is anything we scrape unreachable?
+      - alert: TargetDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has not responded to scrapes for 30s"
+
+      # More than 30% of orders failing  (Counter + rate)
+      - alert: HighOrderFailureRate
+        expr: |
+          sum(rate(orders_total{status="failed"}[1m]))
+            /
+          sum(rate(orders_total[1m])) > 0.30
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 30% of orders are failing"
+          description: "Failure ratio is {{ $value | humanizePercentage }}"
+
+      # 95% of orders should finish within 1.5s  (Histogram)
+      - alert: SlowOrders
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(order_duration_seconds_bucket[1m]))) > 1.5
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 order time is above 1.5s"
+          description: "p95 is {{ $value | printf \"%.2f\" }}s"
+
+      # Running out of beans  (Gauge)
+      - alert: LowCoffeeBeans
+        expr: coffee_beans_stock_grams < 200
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Coffee beans running low"
+          description: "Only {{ $value }}g left. Hit /restock"
+
+      # VM CPU high  (node_exporter)
+      - alert: HighCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 80
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU is at {{ $value | printf \"%.1f\" }}%"
